@@ -11,6 +11,6 @@
     }
   ],
   "rewrites": [
-    { "source": "/(.*)", "dest": "/server.ts" }
+    { "source": "/(.*)", "destination": "/server.ts" }
   ]
 }

@@ -5,14 +5,18 @@ import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import {AlignmentType, Document, Packer, Paragraph, TextRun} from "docx";
 // Setup pdfjs worker
 // pdfjs.GlobalWorkerOptions.workerSrc = path.join(__dirname, "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs");
-import * as pdfjsLib from 'pdfjs-dist';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = ''; // Disable worker cho Node.js
+pdfjs.GlobalWorkerOptions.workerSrc = '';
 
 // Helper function to extract formatted text and generate DOCX paragraphs
 async function extractFormattedParagraphs(buffer: Buffer): Promise<Paragraph[]> {
     const data = new Uint8Array(buffer);
-    const loadingTask = pdfjs.getDocument({data});
+    const loadingTask = pdfjs.getDocument({
+        data,
+        useWorkerFetch: false,
+        isEvalSupported: false,
+        disableFontFace: true,
+    });
     const doc = await loadingTask.promise;
     const numPages = doc.numPages;
     const paragraphs: Paragraph[] = [];

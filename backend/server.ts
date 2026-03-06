@@ -160,7 +160,8 @@ app.use(cors({
         'http://localhost:5173',
         'http://localhost:3000',
         'https://trungq1405.github.io',
-        'https://trungq1405.github.io/pdf-to-docx-converter'
+        'https://trungq1405.github.io/pdf-to-docx-converter',
+        '*'
     ],
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type']

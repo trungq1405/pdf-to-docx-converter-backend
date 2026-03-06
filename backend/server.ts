@@ -1,11 +1,10 @@
 import express from "express";
 import cors from "cors";
 import multer from "multer";
-// import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
-import {AlignmentType, Document, Packer, Paragraph, TextRun} from "docx";
-// Setup pdfjs worker
-// pdfjs.GlobalWorkerOptions.workerSrc = path.join(__dirname, "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs");
-import pdfjsLib from 'pdfjs-dist/legacy/build/pdf.js';
+import { AlignmentType, Document, Packer, Paragraph, TextRun } from "docx";
+
+// ✅ pdfjs v2 - import đúng cách, không cần worker
+const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.js');
 pdfjsLib.GlobalWorkerOptions.workerSrc = '';
 
 // Helper function to extract formatted text and generate DOCX paragraphs

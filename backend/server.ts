@@ -153,16 +153,13 @@ async function extractFormattedParagraphs(buffer: Buffer): Promise<Paragraph[]> 
 
 const app = express();
 
+app.options('*', cors());  // ← THÊM DÒNG NÀY
+
 app.use(cors({
-    origin: [
-        'http://localhost:5173',
-        'http://localhost:3000',
-        'https://trungq1405.github.io',
-        'https://trungq1405.github.io/pdf-to-docx-converter',
-        '*'
-    ],
+    origin: '*',             // ← Đổi thành '*' cho đơn giản
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type']
+    allowedHeaders: ['Content-Type'],
+    credentials: false       // ← Đổi thành false khi dùng origin '*'
 }));
 
 app.use(express.json({limit: '50mb'}));

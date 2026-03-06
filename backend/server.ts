@@ -1,95 +1,5 @@
-// // @ts-ignore
-// import express from "express";
-// // @ts-ignore
-// import cors from "cors";
-// // @ts-ignore
-// import multer from "multer";
-// import { extractText, getDocumentProxy } from "unpdf";
-// import { Document, Packer, Paragraph, TextRun } from "docx";
-//
-// // ✅ KHÔNG CẦN worker, KHÔNG CẦN canvas
-//
-// async function extractFormattedParagraphs(buffer: Buffer): Promise<Paragraph[]> {
-//     // unpdf - serverless native, zero deps
-//     const pdf = await getDocumentProxy(new Uint8Array(buffer));
-//     const { text } = await extractText(pdf, { mergePages: false });
-//
-//     const paragraphs: Paragraph[] = [];
-//     const pages = Array.isArray(text) ? text : [text];
-//
-//     for (let i = 0; i < pages.length; i++) {
-//         const lines = pages[i].split('\n');
-//
-//         for (const line of lines) {
-//             const sanitized = line.trim()
-//                 .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, "")
-//                 .replace(/[^\x09\x0A\x0D\x20-\uD7FF\uE000-\uFFFD\u10000-\u10FFFF]/g, "");
-//
-//             if (!sanitized) continue;
-//
-//             paragraphs.push(new Paragraph({
-//                 children: [new TextRun({
-//                     text: sanitized,
-//                     font: "Times New Roman",
-//                     size: 24
-//                 })],
-//                 spacing: { after: 100 }
-//             }));
-//         }
-//
-//         // Page break giữa các trang
-//         if (i < pages.length - 1) {
-//             paragraphs.push(new Paragraph({
-//                 children: [new TextRun({ text: "" })],
-//                 pageBreakBefore: true
-//             }));
-//         }
-//     }
-//
-//     if (paragraphs.length === 0) {
-//         paragraphs.push(new Paragraph({ children: [new TextRun({ text: " " })] }));
-//     }
-//
-//     return paragraphs;
-// }
-//
-// const app = express();
-//
-// app.options('*', cors());
-// app.use(cors({ origin: '*', methods: ['GET', 'POST', 'OPTIONS'], allowedHeaders: ['Content-Type'], credentials: false }));
-// app.use(express.json({ limit: '50mb' }));
-// app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-//
-// const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
-//
-// // @ts-ignore
-// app.post("/api/convert", upload.single("pdf"), async (req, res) => {
-//     try {
-//         if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-//         const paragraphs = await extractFormattedParagraphs(req.file.buffer);
-//         const doc = new Document({ sections: [{ properties: {}, children: paragraphs }] });
-//         const buffer = await Packer.toBuffer(doc);
-//         res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-//         res.setHeader("Content-Disposition", `attachment; filename="converted_document.docx"`);
-//         res.send(buffer);
-//     } catch (error: any) {
-//         console.error("Conversion error:", error);
-//         res.status(500).json({ error: error.message || "Failed to convert PDF to DOCX" });
-//     }
-// });
-//
-// app.get('/health', (req, res) => res.json({ status: 'OK' }));
-//
-// export default app;
-//
-// if (process.env.NODE_ENV !== 'production') {
-//     app.listen(3000, '0.0.0.0', () => console.log('🚀 http://localhost:3000'));
-// }
-// @ts-ignore
 import express from "express";
-// @ts-ignore
 import cors from "cors";
-// @ts-ignore
 import multer from "multer";
 import { getDocumentProxy } from "unpdf";
 import { AlignmentType, Document, Packer, Paragraph, TextRun } from "docx";
@@ -114,36 +24,39 @@ async function extractFormattedParagraphs(buffer: Buffer): Promise<Paragraph[]> 
 
         if (items.length === 0) continue;
 
-        // Group items by Y coordinate (lines)
-        const linesMap = new Map<number, any[]>();
+        // Sort items by Y descending (top to bottom)
+        items.sort((a, b) => (b.transform?.[5] || 0) - (a.transform?.[5] || 0));
+
+        const lines: any[][] = [];
+        let currentLine: any[] = [];
+        let currentY: number | null = null;
+
         for (const item of items) {
             if (!item.str || item.str.trim() === '') {
                 if (!item.str) continue;
             }
 
-            const y = Math.round(item.transform?.[5] || 0); // Y coordinate
+            const y = item.transform?.[5] || 0;
 
-            // Find an existing line within a tolerance (e.g., 4 points)
-            let foundY = y;
-            // @ts-ignore
-            for (const key of linesMap.keys()) {
-                if (Math.abs(key - y) <= 4) {
-                    foundY = key;
-                    break;
+            if (currentY === null) {
+                currentLine.push(item);
+                currentY = y;
+            } else {
+                // If Y difference is small (e.g. <= 12 points), group them into the same line
+                if (Math.abs(currentY - y) <= 12) {
+                    currentLine.push(item);
+                } else {
+                    lines.push(currentLine);
+                    currentLine = [item];
+                    currentY = y;
                 }
             }
-
-            if (!linesMap.has(foundY)) {
-                linesMap.set(foundY, []);
-            }
-            linesMap.get(foundY)!.push(item);
+        }
+        if (currentLine.length > 0) {
+            lines.push(currentLine);
         }
 
-        // Sort lines by Y descending (top to bottom)
-        const sortedY = Array.from(linesMap.keys()).sort((a, b) => b - a);
-
-        for (const y of sortedY) {
-            const lineItems = linesMap.get(y)!;
+        for (const lineItems of lines) {
             // Sort items in the line by X ascending (left to right)
             lineItems.sort((a, b) => (a.transform?.[4] || 0) - (b.transform?.[4] || 0));
 
@@ -160,8 +73,12 @@ async function extractFormattedParagraphs(buffer: Buffer): Promise<Paragraph[]> 
             const centerPoint = minX + (lineWidth / 2);
             const pageCenter = pageWidth / 2;
 
+            // If the text spans across the page, it's probably justified or left-aligned with spaces
+            if (lineWidth > pageWidth * 0.7) {
+                alignment = AlignmentType.LEFT;
+            }
             // If the text is roughly centered
-            if (Math.abs(centerPoint - pageCenter) < 50 && minX > 40 && maxX < pageWidth - 40) {
+            else if (Math.abs(centerPoint - pageCenter) < 50 && minX > 40 && maxX < pageWidth - 40) {
                 alignment = AlignmentType.CENTER;
             }
             // If the text is right-aligned
@@ -188,8 +105,11 @@ async function extractFormattedParagraphs(buffer: Buffer): Promise<Paragraph[]> 
                 // Add space if there's a significant visual gap between items
                 if (lastItemX !== -1) {
                     const gap = (item.transform?.[4] || 0) - (lastItemX + lastItemWidth);
-                    if (gap > fontSize * 0.25 && !lastItemStr.endsWith(" ") && !item.str.startsWith(" ")) {
-                        runs.push(new TextRun({ text: " " }));
+                    if (gap > fontSize * 0.2) {
+                        // Calculate how many spaces to insert based on the gap size
+                        const spaceWidth = fontSize * 0.25; // Approximate width of a space character
+                        const spaceCount = Math.max(1, Math.round(gap / spaceWidth));
+                        runs.push(new TextRun({ text: " ".repeat(spaceCount) }));
                     }
                 }
 

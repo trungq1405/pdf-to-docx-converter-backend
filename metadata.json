@@ -1,0 +1,5 @@
+{
+  "name": "PDF to DOCX Converter",
+  "description": "Convert PDF documents to editable DOCX files with support for English and Vietnamese text extraction.",
+  "requestFramePermissions": []
+}
